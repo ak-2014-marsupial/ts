@@ -1,10 +1,54 @@
-# About Trade Screener
+# Про Trade Screener (v2.0 — Hybrid Architecture)
 
-Trade Screener is a professional Progressive Web App (PWA) designed for crypto traders, built using Feature-Sliced Design (FSD) architecture.
+**Trade Screener** — це професійний Progressive Web App (PWA) застосунок, створений для криптотрейдерів, що поєднує в собі високу продуктивність, безпеку та передову архітектуру **Feature-Sliced Design (FSD)** з модульною структурою.
 
-## Core Purpose
-The application provides:
-1. **Trading Dashboard**: Real-time bot portfolio monitoring, margin usage, active positions with Breakeven Price calculation (including fees), risk in USDT, and grid limit orders.
-2. **Bybit Market Screener**: Linear futures and spot market screening with advanced filters (turnover, volatility, spread) and Open Interest (OI) Delta scanning.
-3. **Request Orchestrator**: Safe public API queue with constant interval T and `AbortController` cancellation.
-4. **Secure Architecture**: Dual-API model (`bybitPublicClient` + `botPrivateClient`) with encrypted token storage.
+---
+
+## 1. Архітектурні принципи та безпека (Dual-API Model)
+
+Застосунок побудований на принципах гібридної архітектури та розділення відповідальності між клієнтською частиною та сервером бота:
+
+- **Публічний клієнт (`bybitPublicClient`)**: Здійснює прямі GET-запити з браузера виключно до публічних ендпоінтів Bybit API (`https://api.bybit.com`) для отримання ринкових даних (котирування тікерів, відкритий інтерес, свічки, стакани). Захищений через інспектор черги запитів (`PublicRequestQueue`).
+- **Приватний клієнт (`botPrivateClient`)**: Виконує захищені запити до власного Node.js серверу бота, який керує торговими стратегіями, ордерами та приватними потоками Bybit.
+- **Безпека та сховище**: Жодних приватних API-ключів Bybit у браузері. Клієнт зберігає лише `Bot Auth Token`, який при необхідності додатково шифрується за допомогою **Web Crypto API** та зберігається у захищеному сховищі `IndexedDB`.
+
+---
+
+## 2. Основні функціональні модулі
+
+### Модуль 1: Dashboard (Моніторинг Портфеля та Сіток)
+Призначення екрана — повний контроль фінансового стану, ризиків та активних позицій у реальному часі:
+- **Віджети балансу**: Загальний `Equity`, `Wallet Balance`, та вільна маржа (`Available Margin`).
+- **Індикатор завантаження маржі**: Динамічний progress bar співвідношення заблокованої маржі (`totalPositionMargin + totalOrderMargin`) до загального капіталу.
+- **Картки відкритих позицій**: 
+  - Напрямок (`Long` / `Short`), розмір позиції та поточний `Unrealized PnL` у USDT та %.
+  - **Цінові маркери**: Середня ціна входу (`avgPrice`), розрахункова **Ціна беззбитковості (Breakeven Price)** з урахуванням комісій Maker/Taker (0.02% / 0.05%), поточна `Mark Price` та ціна ліквідації (`liqPrice`).
+  - **Захист та ризики**: Рівні `Take Profit`, `Stop Loss`, статус `Trailing Stop` (активний або очікує активації) та розрахунковий ризик у USDT до стопа.
+- **Блок активних лімітних сіток (Active Orders)**: Моніторинг виставлених PostOnly ордерів сітки з прогресом виконання.
+
+### Модуль 2: Bybit Market Screener (Скринінг та Аналіз Ринку)
+Потужний інструмент для швидкого пошуку ринкових можливостей:
+- **Підтримка ринків**: Швидке перемикання між ринками **Linear Futures** та **Spot**.
+- **Розумні фільтри**: 
+  - Пошук за символом (напр. `BTCUSDT`).
+  - Фільтрація за мінімальним та максимальним торговим оббором (`Turnover 24h` у мільйонах доларів).
+  - Волатильність (абсолютна зміна ціни за 24 години у %).
+  - Максимальний спред та ціновий діапазон.
+- **Багатоколонкове сортування (Multi-Sort)**: Можливість сортування за кількома параметрами одночасно (через `Shift + Click` або режим Multi-Sort) із відображенням індексів пріоритету (бейджами 1, 2, 3...) та напрямку.
+- **Сканер 5-хвилинної дельти OI (`5m OI Delta Scan`)**: Автоматичний послідовний опит до 25 відфільтрованих тікерів через ендпоінт відкритого інтересу з інтервалом 150мс для обчислення динаміки зміни Open Interest за 5 хвилин.
+
+### Модуль 3: Request Orchestrator (Оркестратор запитів)
+- Спеціалізована черга публічних запитів з контрольованим інтервалом $T$ та підтримкою `AbortController`. Запобігає перевищенню лімітів запитів (Rate Limiting) від Bybit API та гарантує плавний потік даних.
+
+### Модуль 4: Управління станом та Персоналізація
+- **Паттерн Observer**: Реактивні сервіси даних забезпечують миттєве оновлення UI без зайвих або зайвих глобальних ререндерів усього дерева компонентів.
+- **Налаштування інтерфейсу**: Гнучкий редактор тем (`ThemeSettings`), перемикачі (`ThemeSwitcher`), вибір розміру шрифту (`FontSizePicker`) та швидке очищення локального кешу (`ClearStorageButton`).
+
+---
+
+## 3. Технічний стек
+
+- **Фреймворк**: React 19, TypeScript
+- **Збірка та розробка**: Vite (з підтримкою PWA)
+- **Стилізація**: CSS Modules (з використанням змінних CSS Custom Properties для тем)
+- **Архітектура**: Feature-Sliced Design (FSD) з модульною ізоляцією бізнес-логіки та UI.
